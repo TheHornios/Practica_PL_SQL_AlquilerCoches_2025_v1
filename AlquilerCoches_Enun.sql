@@ -153,11 +153,6 @@ create table lineas_factura(
 create or replace procedure alquilar(arg_NIF_cliente varchar,
   arg_matricula varchar, arg_fecha_ini date, arg_fecha_fin date) is
   
-    v_id_modelo modelos.id_modelo%TYPE;
-    v_precio_dia modelos.precio_cada_dia%TYPE;
-    v_capacidad_deposito modelos.capacidad_deposito%TYPE;
-    v_tipo_combustible modelos.tipo_combustible%TYPE;
-    v_precio_litro precio_combustible.precio_por_litro%TYPE;
     CURSOR c_vehiculo IS
         SELECT m.id_modelo, m.precio_cada_dia, m.capacidad_deposito, m.tipo_combustible, pc.precio_por_litro, v.matricula
         FROM vehiculos v
@@ -166,7 +161,24 @@ create or replace procedure alquilar(arg_NIF_cliente varchar,
         WHERE v.matricula = arg_matricula
         FOR UPDATE OF v.matricula; -- Bloqueamos la fila de la tabla vehiculos
 
+    v_id_modelo modelos.id_modelo%TYPE;
+    v_precio_dia modelos.precio_cada_dia%TYPE;
+    v_capacidad_deposito modelos.capacidad_deposito%TYPE;
+    v_tipo_combustible modelos.tipo_combustible%TYPE;
+    v_precio_litro precio_combustible.precio_por_litro%TYPE;
     r_vehiculo c_vehiculo%ROWTYPE;
+
+    CURSOR c_reserva_solapada IS
+        SELECT r.idReserva
+        FROM reservas r
+        WHERE r.matricula = arg_matricula
+          AND ((arg_fecha_ini <= r.fecha_fin AND arg_fecha_fin >= r.fecha_ini)
+               OR (arg_fecha_ini <= r.fecha_ini AND arg_fecha_fin >= r.fecha_fin)
+               OR (arg_fecha_ini >= r.fecha_ini AND arg_fecha_ini <= r.fecha_fin)
+               OR (arg_fecha_fin >= r.fecha_ini AND arg_fecha_fin <= r.fecha_fin));
+
+    r_reserva_solapada c_reserva_solapada%ROWTYPE;
+
 begin
   -- Verificar que la fecha de inicio no es posterior a la fecha de fin
     IF arg_fecha_ini >= arg_fecha_fin THEN
@@ -181,6 +193,16 @@ begin
         RAISE_APPLICATION_ERROR(-20002, 'Vehiculo inexistente.');
     END IF;
     CLOSE c_vehiculo;
+
+    -- Verificar si existe alguna reserva solapada para el vehículo
+    OPEN c_reserva_solapada;
+    FETCH c_reserva_solapada INTO r_reserva_solapada;
+    IF c_reserva_solapada%FOUND THEN
+        CLOSE c_reserva_solapada;
+        RAISE_APPLICATION_ERROR(-20004, 'El vehiculo no esta disponible.');
+    END IF;
+    CLOSE c_reserva_solapada;
+    
     COMMIT;
 end;
 /
