@@ -152,13 +152,29 @@ create table lineas_factura(
 
 create or replace procedure alquilar(arg_NIF_cliente varchar,
   arg_matricula varchar, arg_fecha_ini date, arg_fecha_fin date) is
+  
+    CURSOR c_vehiculo IS
+        SELECT  v.matricula
+        FROM vehiculos v
+        WHERE v.matricula = arg_matricula
+        FOR UPDATE OF v.matricula; -- Bloqueamos la fila de la tabla vehiculos
+
+    r_vehiculo c_vehiculo%ROWTYPE;
 begin
   -- Verificar que la fecha de inicio no es posterior a la fecha de fin
-  IF arg_fecha_ini >= arg_fecha_fin THEN
-      RAISE_APPLICATION_ERROR(-20003, 'El numero de dias sera mayor que cero.');
-  END IF;
+    IF arg_fecha_ini >= arg_fecha_fin THEN
+        RAISE_APPLICATION_ERROR(-20003, 'El numero de dias sera mayor que cero.');
+    END IF;
 
-  COMMIT;
+    -- Seleccionar y bloquear la información del vehículo
+    OPEN c_vehiculo;
+    FETCH c_vehiculo INTO r_vehiculo;
+    IF c_vehiculo%NOTFOUND THEN
+        CLOSE c_vehiculo;
+        RAISE_APPLICATION_ERROR(-20002, 'Vehiculo inexistente.');
+    END IF;
+    CLOSE c_vehiculo;
+    COMMIT;
 end;
 /
 
