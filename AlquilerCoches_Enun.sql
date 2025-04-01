@@ -179,6 +179,8 @@ create or replace procedure alquilar(arg_NIF_cliente varchar,
 
     r_reserva_solapada c_reserva_solapada%ROWTYPE;
 
+    v_cliente_existe INTEGER;
+
 begin
   -- Verificar que la fecha de inicio no es posterior a la fecha de fin
     IF arg_fecha_ini >= arg_fecha_fin THEN
@@ -202,10 +204,26 @@ begin
         RAISE_APPLICATION_ERROR(-20004, 'El vehiculo no esta disponible.');
     END IF;
     CLOSE c_reserva_solapada;
-    
+
+    -- Verificar si el cliente existe
+    SELECT COUNT(*)
+    INTO v_cliente_existe
+    FROM clientes
+    WHERE NIF = arg_NIF_cliente;
+
+    IF v_cliente_existe = 0 THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Cliente inexistente.');
+    END IF;
+
+    -- Insertar la nueva reserva
+    INSERT INTO reservas (idReserva, cliente, matricula, fecha_ini, fecha_fin)
+    VALUES (seq_reservas.NEXTVAL, arg_NIF_cliente, arg_matricula, arg_fecha_ini, arg_fecha_fin);
+
     COMMIT;
 end;
 /
+
+
 
 create or replace
 procedure reset_seq( p_seq_name varchar )
