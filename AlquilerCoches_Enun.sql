@@ -153,9 +153,16 @@ create table lineas_factura(
 create or replace procedure alquilar(arg_NIF_cliente varchar,
   arg_matricula varchar, arg_fecha_ini date, arg_fecha_fin date) is
   
+    v_id_modelo modelos.id_modelo%TYPE;
+    v_precio_dia modelos.precio_cada_dia%TYPE;
+    v_capacidad_deposito modelos.capacidad_deposito%TYPE;
+    v_tipo_combustible modelos.tipo_combustible%TYPE;
+    v_precio_litro precio_combustible.precio_por_litro%TYPE;
     CURSOR c_vehiculo IS
-        SELECT  v.matricula
+        SELECT m.id_modelo, m.precio_cada_dia, m.capacidad_deposito, m.tipo_combustible, pc.precio_por_litro, v.matricula
         FROM vehiculos v
+        JOIN modelos m ON v.id_modelo = m.id_modelo
+        JOIN precio_combustible pc ON m.tipo_combustible = pc.tipo_combustible
         WHERE v.matricula = arg_matricula
         FOR UPDATE OF v.matricula; -- Bloqueamos la fila de la tabla vehiculos
 
