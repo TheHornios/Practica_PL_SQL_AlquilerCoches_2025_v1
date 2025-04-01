@@ -223,6 +223,20 @@ begin
 end;
 /
 
+/*
+  ----- Ejericio 4.1:
+  Pregunta: 
+    En este paso, la ejecución concurrente del mismo procedimiento ALQUILA con,
+    quizás otros o los mimos argumentos, ¿podría habernos añadido una reserva no
+    recogida en esa SELECT que fuese incompatible con nuestra reserva?, ¿por qué?
+  
+  Mi respuesta: 
+    Por lo que entiendo si que podria suceder porque por mucho que hemos bloqueado la tabla de vehiculos, 
+    el select que busca reservas no esta bloqueando esas filas, asi que es probable que si se ejecuta de 
+    forma concurrente el procedimiento se podria insertat varias reservas para el mismo vehiculo en mismo 
+    intervalo de fechas 
+
+*/
 
 
 create or replace
