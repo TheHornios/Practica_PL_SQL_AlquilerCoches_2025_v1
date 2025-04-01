@@ -236,6 +236,16 @@ end;
     forma concurrente el procedimiento se podria insertat varias reservas para el mismo vehiculo en mismo 
     intervalo de fechas 
 
+  ----- Ejericio 4.2:
+  Pregunta: 
+    En este paso otra transacción concurrente cualquiera ¿podría hacer INSERT o
+    UPDATE sobre reservas y habernos añadido una reserva no recogida en esa SELECT
+    que fuese incompatible con nuestra reserva?, ¿por qué?
+
+  Mi respuesta: 
+    Si dado que como ya hemos comentado en el apartado anterior el bloqueo solo es a nivel de la tabla de vehiculos
+    si otro procedimiento hace un insert, update o delete en la tabla de reservas nuestro select solo leeria el estado de esa tabla
+    en el momento en el que se esta ejecutando lo que haria que se inserten mal las filas
 */
 
 
