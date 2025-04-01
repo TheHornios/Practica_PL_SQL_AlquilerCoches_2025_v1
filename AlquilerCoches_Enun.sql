@@ -154,7 +154,7 @@ create or replace procedure alquilar(arg_NIF_cliente varchar,
   arg_matricula varchar, arg_fecha_ini date, arg_fecha_fin date) is
   
     CURSOR c_vehiculo IS
-        SELECT m.id_modelo, m.precio_cada_dia, m.capacidad_deposito, m.tipo_combustible, pc.precio_por_litro, v.matricula
+        SELECT m.id_modelo, m.nombre, m.precio_cada_dia, m.capacidad_deposito, m.tipo_combustible, pc.precio_por_litro, v.matricula
         FROM vehiculos v
         JOIN modelos m ON v.id_modelo = m.id_modelo
         JOIN precio_combustible pc ON m.tipo_combustible = pc.tipo_combustible
@@ -162,6 +162,7 @@ create or replace procedure alquilar(arg_NIF_cliente varchar,
         FOR UPDATE OF v.matricula; -- Bloqueamos la fila de la tabla vehiculos
 
     v_id_modelo modelos.id_modelo%TYPE;
+    v_nombre_modelo modelos.nombre%TYPE;
     v_precio_dia modelos.precio_cada_dia%TYPE;
     v_capacidad_deposito modelos.capacidad_deposito%TYPE;
     v_tipo_combustible modelos.tipo_combustible%TYPE;
@@ -180,6 +181,9 @@ create or replace procedure alquilar(arg_NIF_cliente varchar,
     r_reserva_solapada c_reserva_solapada%ROWTYPE;
 
     v_cliente_existe INTEGER;
+    v_nro_factura facturas.nroFactura%TYPE;
+    v_importe_total facturas.importe%TYPE := 0;
+    v_n_dias INTEGER;
 
 begin
   -- Verificar que la fecha de inicio no es posterior a la fecha de fin
@@ -194,6 +198,22 @@ begin
         CLOSE c_vehiculo;
         RAISE_APPLICATION_ERROR(-20002, 'Vehiculo inexistente.');
     END IF;
+
+    -- Asignar los valores del registro a las variables individuales
+    v_id_modelo := r_vehiculo.id_modelo;
+    v_nombre_modelo := r_vehiculo.nombre;
+    v_precio_dia := r_vehiculo.precio_cada_dia;
+    v_capacidad_deposito := r_vehiculo.capacidad_deposito;
+    v_tipo_combustible := r_vehiculo.tipo_combustible;
+    v_precio_litro := r_vehiculo.precio_por_litro;
+
+    -- Calcular el número de días
+    IF arg_fecha_fin IS NULL THEN
+        v_n_dias := 4; -- Si fecha_fin es null, se cobra 4 días
+    ELSE
+        v_n_dias := arg_fecha_fin - arg_fecha_ini;
+    END IF;
+
     CLOSE c_vehiculo;
 
     -- Verificar si existe alguna reserva solapada para el vehículo
@@ -219,33 +239,68 @@ begin
     INSERT INTO reservas (idReserva, cliente, matricula, fecha_ini, fecha_fin)
     VALUES (seq_reservas.NEXTVAL, arg_NIF_cliente, arg_matricula, arg_fecha_ini, arg_fecha_fin);
 
+    -- Crear la factura
+    SELECT seq_num_fact.NEXTVAL INTO v_nro_factura FROM dual;
+
+    -- Insertar la factura con el importe total (inicialmente 0, se actualizará implícitamente)
+    INSERT INTO facturas (nroFactura, importe, cliente)
+    VALUES (v_nro_factura, v_importe_total, arg_NIF_cliente);
+    
+    -- Línea de factura por alquiler
+    DECLARE
+      v_importe_alquiler NUMERIC(8, 2);
+      v_concepto_alquiler VARCHAR2(40);
+    BEGIN
+      v_importe_alquiler := v_precio_dia * v_n_dias;
+      v_concepto_alquiler := v_n_dias || ' dias de alquiler, vehiculo modelo ' || v_id_modelo;
+      INSERT INTO lineas_factura (nroFactura, concepto, importe)
+      VALUES (v_nro_factura, v_concepto_alquiler, v_importe_alquiler);
+      v_importe_total := v_importe_total + v_importe_alquiler;
+    END;
+
+    -- Línea de factura por depósito lleno
+    DECLARE
+      v_importe_deposito NUMERIC(8, 2);
+      v_concepto_deposito VARCHAR2(40);
+    BEGIN
+      v_importe_deposito := v_capacidad_deposito * v_precio_litro;
+      v_concepto_deposito := 'Deposito lleno de ' || v_capacidad_deposito || ' litros de ' || v_tipo_combustible ;
+      INSERT INTO lineas_factura (nroFactura, concepto, importe)
+      VALUES (v_nro_factura, v_concepto_deposito, v_importe_deposito);
+      v_importe_total := v_importe_total + v_importe_deposito;
+    END;
+
+    -- Actualizar el importe total de la factura
+    UPDATE facturas SET importe = v_importe_total WHERE nroFactura = v_nro_factura;
+
+
     COMMIT;
 end;
 /
 
 /*
-  ----- Ejericio 4.1:
+  ----- Ejercicio 4.1:
   Pregunta: 
     En este paso, la ejecución concurrente del mismo procedimiento ALQUILA con,
     quizás otros o los mimos argumentos, ¿podría habernos añadido una reserva no
     recogida en esa SELECT que fuese incompatible con nuestra reserva?, ¿por qué?
   
   Mi respuesta: 
-    Por lo que entiendo si que podria suceder porque por mucho que hemos bloqueado la tabla de vehiculos, 
-    el select que busca reservas no esta bloqueando esas filas, asi que es probable que si se ejecuta de 
-    forma concurrente el procedimiento se podria insertat varias reservas para el mismo vehiculo en mismo 
+    Por lo que entiendo sí que podría suceder porque por mucho que hemos bloqueado la tabla de vehículos, 
+    el select que busca reservas no está bloqueando esas filas, así que es probable que si se ejecuta de 
+    forma concurrente el procedimiento se podría insertar varias reservas para el mismo vehículo en mismo 
     intervalo de fechas 
 
-  ----- Ejericio 4.2:
+  ----- Ejercicio 4.2:
   Pregunta: 
     En este paso otra transacción concurrente cualquiera ¿podría hacer INSERT o
     UPDATE sobre reservas y habernos añadido una reserva no recogida en esa SELECT
     que fuese incompatible con nuestra reserva?, ¿por qué?
 
   Mi respuesta: 
-    Si dado que como ya hemos comentado en el apartado anterior el bloqueo solo es a nivel de la tabla de vehiculos
-    si otro procedimiento hace un insert, update o delete en la tabla de reservas nuestro select solo leeria el estado de esa tabla
-    en el momento en el que se esta ejecutando lo que haria que se inserten mal las filas
+    Si dado que como ya hemos comentado en el apartado anterior el bloqueo solo es a nivel de la tabla de vehículos
+    sí otro procedimiento hace un insert, update o delete en la tabla de reservas nuestro select solo leería el estado de esa tabla
+    en el momento en el que se está ejecutando lo que haría que se inserten mal las filas
 */
 
 
