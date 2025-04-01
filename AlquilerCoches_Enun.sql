@@ -301,6 +301,14 @@ end;
     Si dado que como ya hemos comentado en el apartado anterior el bloqueo solo es a nivel de la tabla de vehículos
     sí otro procedimiento hace un insert, update o delete en la tabla de reservas nuestro select solo leería el estado de esa tabla
     en el momento en el que se está ejecutando lo que haría que se inserten mal las filas
+
+  ----- Ejercicio 5:
+  En este paso ninguna transacción concurrente podría habernos borrado el cliente o haber
+  cambiado su NIF dado que como hemos insertado justo antes hemos insertado la fila en la tabla reservas 
+  con el nif como clave ajena, por ello si se quiere borrar nos saltaran las restricciones de calve ajena, esto 
+  mismo sucede cuando se hace una modificación del NIF mientras exista una reserva. 
+  también si tenemos una transacción de alquilar activa he intentamos con cualquier otra transición modificar o borrar
+  filas del cliente esta nueva transacción se quedara bloqueada hasta que finalice la de la transacción de alquilar (Hasta que al final se haga un COMMIR o Rolback)
 */
 
 
