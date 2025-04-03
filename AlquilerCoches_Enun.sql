@@ -1,4 +1,13 @@
 
+/**
+
+Alumno: Rodrigo Pascual Arnaiz
+Email: rpa1004@alu.ubu.es
+
+Repositorio: https://github.com/TheHornios/Practica_PL_SQL_AlquilerCoches_2025_v1
+
+**/
+
 --Para poder borrar y que no nos de error porque no existe
 BEGIN
   -- Intentar borrar tablas
